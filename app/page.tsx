@@ -79,7 +79,7 @@ export default function Home() {
     setIsNewNode(true);
   }
 
-  // Save node (create or update)
+  // Save node (create or update) — optimistic update
   async function handleSaveNode(nodeData: Partial<OrgNode> & { id: string }) {
     const method = isNewNode ? "POST" : "PUT";
     const res = await fetch("/api/nodes", {
@@ -88,7 +88,14 @@ export default function Home() {
       body: JSON.stringify(nodeData),
     });
     if (res.ok) {
-      await fetchNodes();
+      const saved = await res.json() as OrgNode;
+      if (isNewNode) {
+        // Add new node to local state
+        setNodes((prev) => [...prev, saved]);
+      } else {
+        // Update existing node in local state
+        setNodes((prev) => prev.map((n) => (n.id === saved.id ? saved : n)));
+      }
       setEditNode(null);
       setIsNewNode(false);
     } else {
@@ -97,7 +104,7 @@ export default function Home() {
     }
   }
 
-  // Delete node
+  // Delete node — optimistic update
   async function handleDeleteNode(id: string) {
     const res = await fetch("/api/nodes", {
       method: "DELETE",
@@ -105,7 +112,10 @@ export default function Home() {
       body: JSON.stringify({ id }),
     });
     if (res.ok) {
-      await fetchNodes();
+      const { deleted } = await res.json();
+      const deletedSet = new Set(deleted as string[]);
+      // Remove deleted nodes from local state
+      setNodes((prev) => prev.filter((n) => !deletedSet.has(n.id)));
       setEditNode(null);
     } else {
       const err = await res.json();
