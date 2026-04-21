@@ -12,6 +12,17 @@ interface OrgChartProps {
 export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
+  const onNodeClickRef = useRef(onNodeClick);
+  onNodeClickRef.current = onNodeClick;
+
+  // Global edit handler — called from inline HTML onclick
+  useEffect(() => {
+    (window as any).__onNodeEdit = (nodeId: string) => {
+      const node = data.find((n) => n.id === nodeId);
+      if (node) onNodeClickRef.current(node);
+    };
+    return () => { delete (window as any).__onNodeEdit; };
+  }, [data]);
 
   const renderChart = useCallback(async () => {
     if (!containerRef.current || data.length === 0) return;
@@ -59,8 +70,8 @@ export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
         const nameSize = isTop ? "font-size:12px;" : "font-size:11px;";
         const padY = isTop ? "14px" : isMid ? "10px" : "8px";
 
-        const editHint = isAuth
-          ? `<div style="position:absolute;top:6px;right:8px;font-size:10px;color:${dept.border};opacity:0.5;">✎</div>`
+        const editBtn = isAuth
+          ? `<div onclick="event.stopPropagation();window.__onNodeEdit('${node.id}')" style="position:absolute;top:6px;right:8px;font-size:12px;color:${dept.border};opacity:0.6;cursor:pointer;padding:2px 6px;border-radius:6px;background:${dept.border}15;z-index:10;" onmouseover="this.style.opacity='1';this.style.background='${dept.border}30'" onmouseout="this.style.opacity='0.6';this.style.background='${dept.border}15'">✎</div>`
           : "";
 
         return `
@@ -74,14 +85,15 @@ export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
             display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
             box-shadow:0 2px 8px rgba(0,0,0,0.06);
             transition:all 0.2s ease;
-            cursor:${isAuth ? "pointer" : "default"};
+            cursor:default;
             position:relative;overflow:hidden;
           "
+          ondblclick="event.stopPropagation();${isAuth ? `window.__onNodeEdit('${node.id}')` : ''}"
           onmouseover="this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)';this.style.transform='translateY(-2px)'"
           onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.06)';this.style.transform='translateY(0)'"
           >
             ${isTop ? `<div style="position:absolute;top:0;left:0;right:0;height:4px;background:${dept.border};border-radius:14px 14px 0 0;"></div>` : ""}
-            ${editHint}
+            ${editBtn}
             <div style="display:inline-block;background:${dept.border}22;color:${dept.text};font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding:2px 10px;border-radius:10px;margin-bottom:6px;">
               ${dept.label}
             </div>
@@ -103,11 +115,6 @@ export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
         d3.select(this)
           .attr("stroke", "#CBD5E1")
           .attr("stroke-width", 1.5);
-      })
-      .onNodeClick((d: any) => {
-        if (!isAuth) return;
-        const clickedNode = data.find((n) => n.id === d);
-        if (clickedNode) onNodeClick(clickedNode);
       })
       .initialExpandLevel(4)
       .render();
