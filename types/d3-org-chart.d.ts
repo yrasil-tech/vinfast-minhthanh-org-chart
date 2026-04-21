@@ -21,6 +21,8 @@ declare module "d3-org-chart" {
     expandAll(): this;
     collapseAll(): this;
     expandLevel(level: number): this;
+    addNode(node: any): this;
+    removeNode(id: string): this;
   }
 }
 

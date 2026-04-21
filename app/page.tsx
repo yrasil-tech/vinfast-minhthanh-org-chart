@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { OrgNode } from "@/lib/types";
 import Header from "@/components/Header";
 import AuthGate from "@/components/AuthGate";
 import NodeEditor from "@/components/NodeEditor";
+import type { OrgChartHandle } from "@/components/OrgChart";
 
 // d3-org-chart uses DOM → no SSR
 const OrgChart = dynamic(() => import("@/components/OrgChart"), { ssr: false });
@@ -23,6 +24,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const chartRef = useRef<OrgChartHandle>(null);
 
   // Editor state
   const [editNode, setEditNode] = useState<OrgNode | null>(null);
@@ -79,7 +81,7 @@ export default function Home() {
     setIsNewNode(true);
   }
 
-  // Save node (create or update) — optimistic update
+  // Save node (create or update) — imperative chart update, no re-render
   async function handleSaveNode(nodeData: Partial<OrgNode> & { id: string }) {
     const method = isNewNode ? "POST" : "PUT";
     const res = await fetch("/api/nodes", {
@@ -90,11 +92,15 @@ export default function Home() {
     if (res.ok) {
       const saved = await res.json() as OrgNode;
       if (isNewNode) {
-        // Add new node to local state
+        // Update local state for stats
         setNodes((prev) => [...prev, saved]);
+        // Add to chart without re-render
+        chartRef.current?.addNode(saved);
       } else {
-        // Update existing node in local state
+        // Update local state for stats
         setNodes((prev) => prev.map((n) => (n.id === saved.id ? saved : n)));
+        // Direct DOM swap — no chart re-render
+        chartRef.current?.updateNode(saved);
       }
       setEditNode(null);
       setIsNewNode(false);
@@ -104,7 +110,7 @@ export default function Home() {
     }
   }
 
-  // Delete node — optimistic update
+  // Delete node — imperative chart update, no re-render
   async function handleDeleteNode(id: string) {
     const res = await fetch("/api/nodes", {
       method: "DELETE",
@@ -113,9 +119,14 @@ export default function Home() {
     });
     if (res.ok) {
       const { deleted } = await res.json();
-      const deletedSet = new Set(deleted as string[]);
-      // Remove deleted nodes from local state
+      const deletedIds = deleted as string[];
+      const deletedSet = new Set(deletedIds);
+      // Update local state for stats
       setNodes((prev) => prev.filter((n) => !deletedSet.has(n.id)));
+      // Remove from chart without re-render (remove children first, then parent)
+      for (const delId of deletedIds.reverse()) {
+        chartRef.current?.removeNode(delId);
+      }
       setEditNode(null);
     } else {
       const err = await res.json();
@@ -123,19 +134,10 @@ export default function Home() {
     }
   }
 
-  // Chart controls
-  function handleFit() {
-    const chart = (window as any).__orgChart;
-    if (chart) chart.fit();
-  }
-  function handleExpandAll() {
-    const chart = (window as any).__orgChart;
-    if (chart) chart.expandAll().fit();
-  }
-  function handleCollapseAll() {
-    const chart = (window as any).__orgChart;
-    if (chart) chart.collapseAll().expandLevel(2).fit();
-  }
+  // Chart controls via ref
+  function handleFit() { chartRef.current?.fit(); }
+  function handleExpandAll() { chartRef.current?.expandAll(); }
+  function handleCollapseAll() { chartRef.current?.collapseAll(); }
 
   const filledCount = nodes.filter((n) => n.name?.trim()).length;
 
@@ -179,7 +181,7 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <OrgChart data={nodes} isAuth={isAuth} onNodeClick={handleNodeClick} />
+          <OrgChart ref={chartRef} initialData={nodes} isAuth={isAuth} onNodeClick={handleNodeClick} />
         )}
       </main>
 
