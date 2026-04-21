@@ -23,9 +23,9 @@ export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
 
     // Map data to d3-org-chart format
     const chartData = data.map((n) => ({
+      ...n,
       id: n.id,
       parentId: n.parent_id || undefined,
-      ...n,
     }));
 
     // Clear previous
