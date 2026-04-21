@@ -14,6 +14,7 @@ declare module "d3-org-chart" {
     onNodeClick(fn: (d: any) => void): this;
     initialExpandLevel(level: number): this;
     render(): this;
+    getChartState(): any;
     fit(): this;
     zoomIn(): this;
     zoomOut(): this;

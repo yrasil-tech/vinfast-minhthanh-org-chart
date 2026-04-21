@@ -143,13 +143,41 @@ export default function OrgChart({ data, isAuth, onNodeClick }: OrgChartProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.length > 0]); // only run when data first becomes available
 
-  // UPDATE data in existing chart (no re-create, preserves expand/zoom state)
+  // UPDATE data in existing chart — preserve expand & zoom state
   useEffect(() => {
-    if (!chartRef.current || !isInitRef.current) return;
+    const chart = chartRef.current;
+    if (!chart || !isInitRef.current) return;
 
-    chartRef.current
-      .data(toChartData(data) as any)
-      .render();
+    // 1. Save which nodes are currently expanded
+    const expandedMap: Record<string, boolean> = {};
+    try {
+      const state = chart.getChartState();
+      state.allNodes?.forEach((n: any) => {
+        expandedMap[n.data.id] = n._expanded !== false;
+      });
+    } catch {}
+
+    // 2. Update data & render
+    chart.data(toChartData(data) as any).render();
+
+    // 3. Restore expand state
+    try {
+      const state = chart.getChartState();
+      let needsRerender = false;
+      state.allNodes?.forEach((n: any) => {
+        const id = n.data.id;
+        if (id in expandedMap) {
+          const wasExpanded = expandedMap[id];
+          if (Boolean(n._expanded) !== wasExpanded) {
+            n._expanded = wasExpanded;
+            needsRerender = true;
+          }
+        }
+      });
+      if (needsRerender) {
+        chart.render();
+      }
+    } catch {}
 
   }, [data, isAuth]);
 
