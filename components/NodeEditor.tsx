@@ -91,10 +91,8 @@ export default function NodeEditor({ node, allNodes, isNew, onSave, onDelete, on
             <div className="font-bold text-sm" style={{ color: dept.text }}>
               {form.position || "Chức danh..."}
             </div>
-            {form.name ? (
+            {form.name && (
               <div className="text-sm text-slate-600 mt-1">{form.name}</div>
-            ) : (
-              <div className="text-xs text-slate-400 italic mt-1">( Chưa bổ nhiệm )</div>
             )}
           </div>
         </div>

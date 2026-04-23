@@ -68,7 +68,7 @@ function buildNodeContent(node: OrgNode, height: number, isAuth: boolean) {
       </div>
       ${hasName
         ? `<div style="${nameSize}color:#334155;font-weight:500;">${node.name}</div>`
-        : `<div style="font-size:10px;color:#94a3b8;font-style:italic;">( Chưa bổ nhiệm )</div>`
+        : ""
       }
     </div>
   `;
